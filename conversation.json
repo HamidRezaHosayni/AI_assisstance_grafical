@@ -1,0 +1,18 @@
+[
+  {
+    "user": "سلام چطوری",
+    "assistant": "خوبه می‌فهمم! چطوری می‌خواهید کمک شود؟ (Good evening how can I help you?)"
+  },
+  {
+    "user": "یک پوشه داخل دسکتاپ به اسم حمید برای من بساز",
+    "assistant": "ابزار با موفقیت اجرا شد."
+  },
+  {
+    "user": "سلام چطوری حالت خوبه",
+    "assistant": "خدمتم تا کمک کنید! اگر نیاز دارید به کسی دیگر کمک کند، لطفاً اطلاع دهید.祝您有美好的一天！ (I'm doing well, thank you for letting me know if there's anything else I can assist with.) Have a great day as well!"
+  },
+  {
+    "user": "سلام یک پوشه داخل دسامبر من بساز اسمش بذار علم",
+    "assistant": "ابزار با موفقیت اجرا شد."
+  }
+]

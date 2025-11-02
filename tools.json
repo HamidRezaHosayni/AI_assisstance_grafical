@@ -1,0 +1,41 @@
+[
+
+  {
+    "name": "create_file",
+    "description": "Create a new file with specified content. Inputs: filename (file name), content (text to write).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "The name of the file to create."
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content to write inside the new file."
+        }
+      },
+      "required": ["filename", "content"]
+    }
+  },
+
+  {
+  "name": "script_executor",
+  "description": "Generates and executes a script based on user description. Supports dry_run mode for code preview.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "task": {
+        "type": "string",
+        "description": "Description of the script to generate (e.g., 'Create a file named note.txt on desktop with content Hello')"
+      },
+      "dry_run": {
+        "type": "boolean",
+        "description": "If true, only returns generated code without execution (for user confirmation). Default: false."
+      }
+    },
+    "required": ["task"]
+  }
+}
+
+]

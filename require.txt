@@ -1,0 +1,62 @@
+# 1. ایجاد محیط مجازی (اگر نداری)
+python -m venv myai_env
+
+# 2. فعال کردن محیط مجازی
+# ویندوز:
+myai_env\Scripts\activate
+# مک/لینوکس:
+source myai_env/bin/activate
+
+# 3. نصب کتابخانه‌های اصلی
+pip install PyQt6 PyQt6-WebEngine PyQt6-Svg
+
+# 4. نصب LangChain و ابزارهای مرتبط
+pip install langchain langchain-community langchain-core
+
+# 5. نصب FAISS برای جستجوی برداری
+pip install faiss-cpu  # یا faiss-gpu اگر GPU داری
+
+# 6. نصب Ollama SDK برای اتصال به مدل‌های لوکال
+pip install ollama
+
+# 7. نصب موتور STT/TTS (ماژول صوتی)
+pip install speechrecognition pyttsx3
+
+# 8. نصب کتابخانه‌های کمکی
+pip install python-dotenv pillow numpy
+
+# 9. (اختیاری) برای پشتیبانی از فارسی و RTL در PyQt6
+pip install qtawesome  # برای آیکون‌های زیبا و RTL
+
+
+
+
+
+
+
+
+===========================================================
+
+
+├─ main.py                  → فایل اصلی اجرای برنامه
+├─ ui/                      → رابط گرافیکی
+│   ├─ assets/              → SVG متحرک، آیکون‌ها، فونت فارسی
+│   └─ gui.py               → کدهای UI و کنترل تعامل کاربر
+│
+├─ speech/                  → ماژول‌های صوتی
+│   ├─ stt.py               → تبدیل صدا به متن
+│   ├─ tts.py               → تبدیل متن به صدا
+│   └─ listener.py          → کنترل وضعیت گوش دادن و میوت
+│
+├─ llm/                     → ماژول مدل زبانی و مدیریت ابزار
+│   ├─ ollama_api.py        → اتصال به Ollama و ارسال پرامپت به Phi-4
+│   └─ tool_selector.py     → انتخاب ابزارهای مرتبط با سوال کاربر
+│
+├─ tools/                   → پوشه ابزارها (Agent ها)
+│   ├─ file_search.py
+│   ├─ file_creator.py
+│   └─ ...                  → ابزارهای اضافی در آینده
+│
+└─ tools.json               → معرفی ابزارها برای مدل و ماژول انتخاب ابزار
+
+
