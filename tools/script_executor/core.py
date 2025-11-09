@@ -92,22 +92,27 @@ def confirm_execution(code: str, language: str) -> bool:
 
 # ---------- تماس با Ollama ----------
 def _call_ollama(prompt: str) -> str:
-    full_prompt = (
-        "You are a code generation engine, NOT a chatbot. "
-        "Your ONLY task is to output raw, executable code that fulfills the user's request. "
-        "Follow these rules EXACTLY and WITHOUT EXCEPTION:\n"
-        "1. Output ONLY the code. NOTHING ELSE.\n"
-        "2. NO explanations, NO comments, NO apologies, NO markdown, NO backticks (```).\n"
-        "3. DO NOT wrap the code in JSON, XML, or any other structure.\n"
-        "4. DO NOT say 'Here is the code:' or 'Sure!' or anything similar.\n"
-        "5. If the task is to create a folder, write OS-agnostic Python code using os.makedirs().\n"
-        "6. Assume the script will run on the user's desktop. Use relative or standard paths.\n"
-        "7. If you are unsure, prefer Python over bash or PowerShell for cross-platform compatibility.\n"
-        "8. NEVER include any text before or after the code.\n\n"
-        "my username is hamidreza and use linux system"
-        f"Task: {prompt}\n\n"
-        "BEGIN OUTPUT:"
-    )
+    full_prompt = f"""
+            You are a code generation engine, NOT a chatbot.
+            You MUST output ONLY raw executable code, with ZERO extra text.
+
+            STRICT RULES — YOU MUST FOLLOW THEM EXACTLY:
+            1. Output ONLY the code. Absolutely NOTHING else.
+            2. NO explanations, NO descriptions, NO comments.
+            3. NO markdown. NO backticks. NO “```python”.
+            4. DO NOT wrap the output in JSON, XML, brackets, quotes, or any structure.
+            5. DO NOT add sentences like “Here is the code”.
+            6. Prefer Python code unless the user explicitly requests another language.
+            7. For folder creation, always use Python with os.makedirs().
+            8. Assume the environment is Linux, username = "hamidreza".
+            9. If unsure, produce the most reasonable Python implementation.
+            10. The final output MUST be pure code with no surrounding text.
+
+            Task: {prompt}
+
+            BEGIN OUTPUT:
+        """
+        
     payload = {
         "model": OLLAMA_MODEL,
         "messages": [{"role": "user", "content": full_prompt}],

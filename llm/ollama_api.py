@@ -1,4 +1,3 @@
-# project/llm/ollama_api.py
 import json
 import os
 import time
@@ -6,10 +5,10 @@ import re
 import traceback
 import requests
 from dotenv import load_dotenv
-import os
 
 
 load_dotenv()  # بارگذاری تنظیمات از فایل .env
+
 # فرض: تاریخچه در ریشه پروژه ذخیره می‌شود
 HISTORY_PATH = os.path.join(os.path.dirname(__file__), "..", "conversation.json")
 
@@ -43,11 +42,13 @@ def save_to_history(user_msg: str, assistant_msg: str):
         traceback.print_exc()
 
 class OllamaAPI:
-    def __init__(self, model_name= os.getenv("MODEL_NAME", "phi4-mini:3.8b")):
-        self.model = model_name
+    def __init__(self):
+        # استفاده از دو مدل مجزا
+        self.action_model = os.getenv("ACTION_MODEL_NAME", "phi4-mini:3.8b")
+        self.chat_model = os.getenv("CHAT_MODEL_NAME", "dolphin3:latest")
         self.api_url = os.getenv("API_URL_CHAT", "http://localhost:11434/api/chat")
         # لیست کلیدواژه‌ها و گونه‌های محاوره‌ای (فارسی/انگلیسی)
-        self.tool_keywords =os.getenv("TOOL_KEYWORDS", "").split(",")
+        self.tool_keywords = os.getenv("TOOL_KEYWORDS", "").split(",")
         # ریشه‌های ساده برای بررسی سریع (fallback)
         self.verb_roots = os.getenv("VERB_ROOTS", "").split(",")
 
@@ -98,35 +99,46 @@ class OllamaAPI:
 
     def send_to_model(self, user_query: str) -> str:
         try:
-            url = self.api_url
-            model = self.model
-
             # تشخیص نیاز به ابزار
             is_action = self._detect_action(user_query)
             print(f"[OLLAMA] نیاز به ابزار: {is_action}")
 
-            # پرامپت سیستم: انتظار JSON با نام ابزار
-            system_content = (
-                """
-                  "You have access to the following tools:\n"
-                  "- create_file: Create a file. Arguments: {\"filename\": \"string\", \"content\": \"string\"}\n"
-                  "- script_executor: Generate and run a script. Arguments: {\"task\": \"string\", \"dry_run\": false}\n\n"
-                  "Rules:\n"
-                  "1. Return ONLY a JSON object with \"name\" and \"arguments\".\n"
-                  "2. \"name\" MUST be exactly one of: \"create_file\" or \"script_executor\".\n"
-                  "3. NEVER invent new tool names.\n"
-                  "4. If unsure, use \"script_executor\" with the full user request as \"task\".\n"
-                  "5. NO markdown, NO explanation, NO extra text.\n\n"
-                  "Example:\n"
-                  "{\"name\": \"script_executor\", \"arguments\": {\"task\": \"Create a folder named test on desktop\", \"dry_run\": true}}"
+            # انتخاب مدل و پرامپت سیستم
+            if is_action:
+                model = self.action_model
+                # پرامپت سیستم: انتظار JSON با نام ابزار
+                system_content = (
+                    """
+                      "You have access to the following tools:\n"
+                      "- script_executor: Generate and run a script. Arguments: {\"task\": \"string\", \"dry_run\": false}\n\n"
+                      "Rules:\n"
+                      "1. Return ONLY a JSON object with \"name\" and \"arguments\".\n"
+                      "2. \"name\" MUST be exactly one of: \"create_file\" or \"script_executor\".\n"
+                      "3. NEVER invent new tool names.\n"
+                      "4. If unsure, use \"script_executor\" with the full user request as \"task\".\n"
+                      "5. NO markdown, NO explanation, NO extra text.\n\n"
+                      "Example:\n"
+                      "{\"name\": \"script_executor\", \"arguments\": {\"task\": \"Create a folder named test on desktop\", \"dry_run\": true}}"
 
-                """.strip()
-                if is_action else
-                """
-                "You are a helpful assistant. Respond only in Persian, briefly and clearly."
-                """.strip()
-            )
-
+                    """.strip()
+                )
+            else:
+                model = self.chat_model
+                # پرامپت سیستم: گفتگوی معمولی
+                # پرامپت سیستم: گفتگوی معمولی (انگلیسی برای مدل، فارسی برای کاربر)
+                system_content = """
+                    You are Jack, a Persian-speaking AI assistant created by Hamidreza.  
+                    You respond only in Persian, clearly and briefly — never in English.  
+                    Your purpose is to help users with simple tasks and answer questions naturally.  
+                    You can create folders, find files, and execute automated scripts upon request.  
+                    Your name is Jack.  
+                    You support both voice and text interactions.  
+                    If asked who made you, say: "I was created by Hamidreza."  
+                    If asked what you can do, say: "I can perform simple tasks like creating folders and finding files."  
+                    If asked your name, say: "My name is Jack."  
+                    If asked how to interact with you, say: "You can talk to me using voice or text."  
+                    Always be helpful, polite, and concise. Never explain more than needed. Never use markdown, lists, or extra punctuation.
+                    """.strip()
             # آماده‌سازی پیام‌ها و تاریخچه
             messages = []
             history_text = ""
@@ -164,16 +176,14 @@ class OllamaAPI:
                 }
             }
 
-            # آماده‌سازی ابزارها (با name) و نگهداری schema بر اساس name
-            provided_tool_names = []
-            safe_tools = []
-            name_to_schema = {}
-
+            # اگر حالت ابزار بود، ابزارها را اضافه کن
             if is_action:
                 try:
                     from .tool_selector import ToolSelector
                     tool_selector = ToolSelector()
                     relevant_tools = tool_selector.select_relevant_tools(user_query, top_k=3)
+                    safe_tools = []
+                    name_to_schema = {}
                     for t in relevant_tools:
                         if isinstance(t, dict) and "name" in t:
                             tool_entry = {
@@ -184,11 +194,10 @@ class OllamaAPI:
                                 tool_entry["parameters"] = t["parameters"]
                                 name_to_schema[t["name"]] = t["parameters"]
                             safe_tools.append(tool_entry)
-                            provided_tool_names.append(t["name"])
 
                     if safe_tools:
                         payload["tools"] = safe_tools
-                        print(f"[OLLAMA] ✅ ابزارهای ارسالی: {provided_tool_names}")
+                        print(f"[OLLAMA] ✅ ابزارهای ارسالی: {[t['name'] for t in safe_tools]}")
 
                         # لاگ ابزارها
                         try:
@@ -218,7 +227,7 @@ class OllamaAPI:
             print("=================================")
             print(payload)
             print("==================================")
-            response = requests.post(url, json=payload, timeout=120)
+            response = requests.post(self.api_url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
 
@@ -230,7 +239,7 @@ class OllamaAPI:
 
             cleaned_raw = raw.replace("```json", "").replace("```", "").strip()
 
-                       # اگر حالت ابزار بود: parse و انتظار {"name", "arguments"}
+            # اگر حالت ابزار بود: parse و انتظار {"name", "arguments"}
             if is_action:
                 try:
                     parsed = json.loads(cleaned_raw)
@@ -241,6 +250,9 @@ class OllamaAPI:
                         # تعیین نام نهایی ابزار (مستقیم یا تصحیح‌شده)
                         final_tool_name = None
                         final_args = args
+
+                        # لیست ابزارهای ارسالی (نام معتبر)
+                        provided_tool_names = [t["name"] for t in safe_tools]
 
                         if received_name in provided_tool_names:
                             final_tool_name = received_name
@@ -324,7 +336,7 @@ class OllamaAPI:
         """
         try:
             if not isinstance(args, dict):
-                return {}, [], list(tool_schema.get("required", [])) if tool_schema else []
+                return {}, [], list(tool_schema.get("required", [])) if schema else []
 
             props = tool_schema.get("properties", {}) if isinstance(tool_schema, dict) else {}
             allowed_keys = set(props.keys())
