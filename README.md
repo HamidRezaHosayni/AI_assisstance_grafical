@@ -1,369 +1,169 @@
-✅ README — AI Assistant (English + Persian)
-🇬🇧 AI Assistant — Intelligent Local & Online Python Assistant
-⭐ Introduction
+```markdown
+# 🤖 دستیار هوش مصنوعی – Python + Ollama + Local Tools
 
-AI Assistant is a powerful, extensible, and fully modular assistant that uses both offline language models (Ollama) and online API-based models (OpenRouter or others) to execute tasks, analyze files, create tools, run code, search documents, perform speech processing, and more.
+این پروژه یک **دستیار هوش مصنوعی پیشرفته** است که به‌صورت کاملاً محلی (Local) اجرا می‌شود و می‌تواند متن، صوت، دستور، جستجو و ابزارهای مختلف را مدیریت کند. این برنامه با مدل‌های آفلاین Ollama و ابزارهای قابل‌توسعه کار می‌کند.
 
-The program supports voice input, voice output, PDF search, web search, tool-based execution, and the ability to add unlimited custom tools via a dedicated prompt system.
+---
 
-With its flexible architecture, AI Assistant can be used as:
+## 🧠 معرفی پروژه
 
-A development helper
+این دستیار هوشمند قادر است:
 
-A research assistant
+- با کاربر از طریق رابط گرافیکی **PyQt6** ارتباط برقرار کند  
+- **پیام‌ها را تحلیل کند** و تشخیص دهد که آیا باید *پاسخ دهد* یا *ابزاری اجرا کند*  
+- ابزارهای مختلف را در محیط **ایمن و ایزوله** اجرا کند  
+- برای تحلیل و فهم زبان از مدل‌های محلی **Ollama** استفاده کند  
+- ابزارهای جدید را تنها با یک **Prompt** بسازد  
+- از اجرای کدهای خطرناک جلوگیری کند  
+- دارای معماری **ماژولار** و کاملاً توسعه‌پذیر باشد  
 
-A coding agent
+---
 
-A file analyzer
+## ⭐ ویژگی‌های اصلی
 
-A personal AI desktop app
+- پشتیبانی از مدل‌های آفلاین Ollama  
+- تشخیص خودکار اجرای ابزار  
+- سیستم Trigger هوشمند بر اساس کلمات کلیدی  
+- ورودی صوتی → تبدیل گفتار به متن  
+- خروجی صوتی TTS  
+- جستجو داخل PDF  
+- جستجو در وب  
+- اجرای دستورات در محیط امن  
+- قابلیت افزودن ابزارهای جدید  
+- پشتیبانی کامل از فارسی و انگلیسی  
 
-A modular tool executor
+---
 
-🎯 Features
-✅ Core Features
+## 🖼️ اسکرین‌شات‌ها
 
-Local model support (Ollama)
+در این بخش اسکرین‌شات‌های برنامه را قرار دهید:
 
-Online model support (OpenRouter API)
+![Screenshot](https://your-image-link.com/screenshot.jpg)
 
-Multi-model switching (Ollama <-> Online API)
+---
 
-One-click tool execution
+# ⚙️ پیش‌نیازها
 
-Smart tool detection using keywords
+## 1️⃣ نصب Ollama
 
-Create unlimited custom tools
-
-Search inside PDF files
-
-Web search support
-
-Execute terminal commands
-
-Voice input support
-
-Voice output (TTS)
-
-Automatic conversation memory
-
-GUI-ready architecture
-
-Clear project folder structure
-
-🖼️ Screenshots
-
-(Replace images later by uploading to GitHub and updating URLs)
-
-✅ Main Interface
-
-✅ Tool Execution
-
-✅ PDF/Web Search
-
-⚙️ Prerequisites
-✅ Install Ollama
-
-The program requires Ollama to run local LLMs.
-
-🔵 Windows Installation
-
-Download Ollama for Windows:
+### ✅ ویندوز  
+Ollama را از سایت رسمی دانلود و نصب کنید:  
 https://ollama.com/download
 
-Install normally (Next → Next → Finish).
-
-🟣 Linux Installation
-
-Run the following command:
-
+### ✅ لینوکس  
+```bash
 curl -fsSL https://ollama.com/install.sh | sh
+```
 
+---
 
-After installation verify:
+## 2️⃣ نصب مدل‌های لازم
 
-ollama --version
+پس از نصب Ollama، مدل‌های زیر را نصب کنید:
 
-✅ Install Required Models
-
-After Ollama is installed, download these models:
-
+```bash
 ollama pull dolphin3:latest
 ollama pull phi4-mini:3.8b
 ollama pull qwen2.5:7b
+```
 
+---
 
-These models are required for program operation.
+## 3️⃣ نصب پکیج‌ها
 
-📦 Installation
-✅ Step 1 — Create Virtual Environment
-python3 -m venv venv
+به مسیر اصلی پروژه بروید و ابتدا یک محیط مجازی ایجاد کنید:
 
+```bash
+python -m venv venv
+```
 
-Activate it:
+### فعال‌سازی محیط مجازی:
 
-Linux:
-source venv/bin/activate
-
-Windows:
+✅ ویندوز:
+```bash
 venv\Scripts\activate
+```
 
-✅ Step 2 — Install Requirements
+✅ لینوکس / مک:
+```bash
+source venv/bin/activate
+```
 
-Go to the root of the project and run:
+---
 
+### نصب وابستگی‌ها:
+
+```bash
 pip install -r requirements.txt
+```
 
-▶️ Running the Program
+---
 
-Activate your virtual environment:
+## 🚀 اجرای برنامه
 
-Linux:
-source venv/bin/activate
+ابتدا محیط مجازی را فعال کنید و سپس فایل اصلی را اجرا کنید:
 
-Windows:
-venv\Scripts\activate
-
-
-Then run:
-
+```bash
 python main.py
+```
 
+---
 
-The AI Assistant will start immediately.
+# 🔧 ساخت ابزار جدید (Tools)
 
-🛠️ Creating New Tools
+برای ساخت ابزار جدید:
 
-The assistant supports dynamic tool creation.
+### ✔️ ساختار پوشه
 
-Inside your project there is a file:
+```
+project/
+└── tools/
+    └── your_tool/
+        └── main.py
+```
 
+### ✔️ فایل main.py باید ورودی JSON از stdin بگیرد  
+و خروجی فقط یک JSON چاپ کند.
+
+### ✔️ تعریف ابزارها در فایل tools.json انجام می‌شود.
+
+---
+
+## 📝 پرامپت ساخت ابزار
+
+در پروژه فایلی وجود دارد به نام:
+
+```
 create_Tools.txt
+```
 
+این فایل شامل یک پرامپت کامل برای ساخت ابزار است.  
+اگر آن را به مدل بدهید، هر ابزاری که نیاز دارید برای شما تولید می‌کند.
 
-This file contains a powerful prompt template.
+---
 
-✅ How to create a new tool:
+## 🗝️ نحوه فعال‌سازی ابزارها
 
-Open create_Tools.txt
+در فایل `.env` بخشی به صورت زیر وجود دارد:
 
-Copy the entire content
-
-Paste it into your AI model (ChatGPT, LLaMA, etc.)
-
-Describe the tool you want
-
-The model will automatically generate:
-
-Python file
-
-Tool structure
-
-Input/output format
-
-Integration steps
-
-You can create tools such as:
-
-File generators
-
-Web scrapers
-
-Database handlers
-
-PDF processors
-
-Network utilities
-
-Custom automation scripts
-
-The system is unlimited and fully extensible.
-
-🎛️ How Tools Are Activated (Keyword System)
-
-Inside your .env file you have:
-
+```
 TOOL_KEYWORDS=اجرا کن,بساز,جستجو کن,سرچ,سرچ کن,بگرد,پیدا کن,ذخیره کن,فایل بساز,تولید کن,انجام بده,بنویس,run,create,search,generate,find,save,make file,build,execute,اسکریپت,کد,دستور
 VERB_ROOTS=جستجو,سرچ,بگرد,پیدا,بساز,ایجاد,ذخیره,write,create,search,find,run,اسکریپت,کد,دستور
+```
 
+این کلمات باعث می‌شوند برنامه تشخیص دهد که باید ابزار اجرا شود.
 
-Whenever a user types a sentence containing one of these keywords:
+---
 
-✅ The program detects intent
-✅ The correct tool is selected
-✅ The tool is executed automatically
+# 🧑‍💻 معرفی برنامه‌نویس
 
-This is the foundation of tool automation.
+در بخش زیر تصویر و اطلاعات سازنده پروژه را قرار دهید:
 
-🧩 How to Use the Program
+![Developer Image](https://your-image-link.com/photo.jpg)
 
-Activate the virtual environment
+**نام:**  
+**ایمیل:**  
+**وبسایت:**  
+**گیت‌هاب:**  
 
-Navigate to the project root
-
-Run:
-
-python main.py
-
-
-Speak or type your request
-
-If the request includes tool keywords → the tool will run
-
-Otherwise, the LLM will respond normally
-
-👨‍💻 Developer Information
-Developer	Contact
-HamidReza Hosayni	(Your details here)
-📧 Email
-
-your-email@example.com
-
-🌐 Website
-
-https://yourwebsite.com
-
-🖼️ Developer Photo
-
-(Insert your image here)
-
-
-———————————————————————————
-🇮🇷 دستیار هوش مصنوعی — نسخه فارسی
-⭐ معرفی
-
-دستیار هوش مصنوعی یک برنامه قدرتمند، قابل توسعه و مجهز به ابزارهای مختلف است که با استفاده از مدل‌های زبانی آفلاین (Ollama) و مدل‌های آنلاین (OpenRouter و …) می‌تواند کارهای مختلفی مانند:
-
-پردازش صدا
-
-تولید صدا
-
-تحلیل فایل‌ها
-
-جستجو داخل PDF
-
-جستجو در وب
-
-اجرای دستورات ترمینال
-
-ساخت ابزارهای جدید
-
-تحلیل کد
-
-اجرای کد
-
-مدیریت مکالمه
-
-را انجام دهد.
-
-این برنامه به صورت تماماً ماژولار طراحی شده است و می‌تواند به عنوان:
-
-✅ دستیار برنامه‌نویسی
-✅ دستیار تحقیقاتی
-✅ ابزار تحلیل فایل
-✅ دستیار آفلاین دسکتاپ
-✅ سیستم اجرای ابزارهای پویا
-
-استفاده شود.
-
-🎯 ویژگی‌ها
-
-پشتیبانی از مدل‌های آفلاین
-
-پشتیبانی از API آنلاین
-
-سوئیچ آنی بین مدل‌ها
-
-اجرای ابزار با تشخیص هوشمند
-
-پشتیبانی از صدا
-
-مدیریت تاریخچه مکالمه
-
-پشتیبانی از فایل‌ها و پروژه‌ها
-
-ساخت ابزارهای نامحدود
-
-ساختار استاندارد پوشه‌ها
-
-🖼️ تصاویر برنامه
-
-(بعداً تصاویر را اضافه کنید)
-
-/images/main-ui.png
-/images/tools.png
-/images/search.png
-
-⚙ پیش‌نیازها
-✅ نصب Ollama
-ویندوز
-
-نصب از سایت رسمی:
-https://ollama.com/download
-
-لینوکس
-curl -fsSL https://ollama.com/install.sh | sh
-
-✅ نصب مدل‌ها
-ollama pull dolphin3:latest
-ollama pull phi4-mini:3.8b
-ollama pull qwen2.5:7b
-
-📦 نصب برنامه
-ساخت محیط مجازی
-python -m venv venv
-
-فعال‌سازی
-
-لینوکس:
-
-source venv/bin/activate
-
-
-ویندوز:
-
-venv\Scripts\activate
-
-نصب پکیج‌ها
-pip install -r requirements.txt
-
-▶️ اجرای برنامه
-python main.py
-
-
-برنامه اجرا شده و آماده استفاده است.
-
-🛠 ساخت ابزار جدید
-
-در پروژه فایلی به نام:
-
-create_Tools.txt
-
-
-وجود دارد.
-این فایل یک پرامپت کامل است که اگر آن را به یک مدل هوش مصنوعی بدهید، برای شما هر ابزاری که بخواهید تولید می‌کند.
-
-🎛 نحوه فعال شدن ابزارها
-
-در فایل .env این بخش وجود دارد:
-
-TOOL_KEYWORDS= ...
-VERB_ROOTS= ...
-
-
-این کلمات، کلمات کلیدی ابزار هستند.
-اگر کاربر جمله‌ای شامل این کلمات بنویسد → ابزار اجرا می‌شود.
-
-👨‍💻 معرفی برنامه‌نویس
-📷 عکس برنامه‌نویس (سمت راست)
-
-(در آینده تصویر قرار دهید)
-
-
-📄 اطلاعات (سمت چپ)
-
-نام: حمیدرضا حسینی
-
-ایمیل: your-email@example.com
-
-وب‌سایت: https://yourwebsite.com
+```
