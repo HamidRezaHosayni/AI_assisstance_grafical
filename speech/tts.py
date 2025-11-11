@@ -1,9 +1,9 @@
-# project/speech/tts.py
 import os
 import threading
 import subprocess
 import wave
 import numpy as np
+import re
 from piper.voice import PiperVoice
 
 # مسیر مدل فارسی Piper (نسبت به این فایل)
@@ -20,6 +20,19 @@ def _load_piper_model():
         print("[TTS] در حال بارگذاری مدل Piper فارسی...")
         _piper_voice = PiperVoice.load(MODEL_PATH, CONFIG_PATH)
         print("[TTS] مدل Piper بارگذاری شد.")
+
+def extract_persian_text(text: str) -> str:
+    """
+    فقط کاراکترهای فارسی، اعداد، فاصله و نیم‌فاصله را نگه می‌دارد.
+    سایر کاراکترها (مثل انگلیسی، علائم، کد، غیره) حذف می‌شوند.
+    """
+    # الگو: فقط حروف فارسی، اعداد، فاصله، نیم‌فاصله، خط تیره، و خط جدید
+    pattern = r'[^\u0600-\u06FF\u200C\u200D\s0-9\n\r\-]'
+    # جایگزینی کاراکترهای غیرمجاز با فاصله
+    cleaned = re.sub(pattern, ' ', text)
+    # حذف فضاهای اضافی
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned
 
 def _play_audio_file(file_path: str):
     """پخش فایل صوتی با ffplay (بدون نمایش پنجره)"""

@@ -1,8 +1,4 @@
-# project/ui/gui.py
 import sys
-from speech.tts import text_to_speech  # ← جدید
-
-
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTextEdit, QLineEdit, QPushButton, QStackedWidget
@@ -122,7 +118,6 @@ class AssistantGUI(QMainWindow):
         self.input_area.setCurrentIndex(1)
         self.chat_display.append("<i>حالت صوتی فعال شد.</i>")
         self.scroll_to_bottom()
-        self.start_continuous_listening()
 
     def switch_to_text_mode(self):
         self.stop_voice_listening()
@@ -188,7 +183,7 @@ class AssistantGUI(QMainWindow):
         # نمایش فوری پیام کاربر
         self.chat_display.append(f"<b>شما:</b> {text}")
         self.input_field.clear()
-        self.scroll_to_bottom()  # ✅ اسکرول قبل از ارسال
+        self.scroll_to_bottom()
 
         # سپس پیام انتظار
         self.chat_display.append("<i>در انتظار پاسخ مدل...</i>")
@@ -224,10 +219,10 @@ class AssistantGUI(QMainWindow):
 
         # ✅ پخش صدا فقط در حالت صوتی
         if self.input_area.currentIndex() == 1:  # index 1 = حالت صوتی
-            text_to_speech(response)
-
-
-
+            from speech.tts import extract_persian_text
+            filtered_response = extract_persian_text(response)
+            from speech.tts import text_to_speech
+            text_to_speech(filtered_response)
 
     # ==================== کمکی ====================
 
