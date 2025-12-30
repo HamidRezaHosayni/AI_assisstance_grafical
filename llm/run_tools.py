@@ -31,7 +31,7 @@ def execute_tool(tool_name: str, arguments: dict) -> str:
             text=True,
             capture_output=True,
             cwd=tool_cwd,
-            timeout=120,
+            # timeout=120,
             env=env
         )
 

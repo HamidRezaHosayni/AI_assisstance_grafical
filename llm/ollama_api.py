@@ -1,3 +1,5 @@
+#llm/ollama_api.py
+
 import json
 import os
 import time
@@ -97,48 +99,29 @@ class OllamaAPI:
             traceback.print_exc()
             return False
 
+
     def send_to_model(self, user_query: str) -> str:
         try:
             # تشخیص نیاز به ابزار
             is_action = self._detect_action(user_query)
             print(f"[OLLAMA] نیاز به ابزار: {is_action}")
 
-            # انتخاب مدل و پرامپت سیستم
-            if is_action:
-                model = self.action_model
-                # پرامپت سیستم: انتظار JSON با نام ابزار
-                system_content = (
-                    """
-                      "You have access to the following tools:\n"
-                      "- script_executor: Generate and run a script. Arguments: {\"task\": \"string\", \"dry_run\": false}\n\n"
-                      "Rules:\n"
-                      "1. Return ONLY a JSON object with \"name\" and \"arguments\".\n"
-                      "2. \"name\" MUST be exactly one of: \"create_file\" or \"script_executor\".\n"
-                      "3. NEVER invent new tool names.\n"
-                      "4. If unsure, use \"script_executor\" with the full user request as \"task\".\n"
-                      "5. NO markdown, NO explanation, NO extra text.\n\n"
-                      "Example:\n"
-                      "{\"name\": \"script_executor\", \"arguments\": {\"task\": \"Create a folder named test on desktop\", \"dry_run\": true}}"
+            # پیش‌فرض: حالت چت
+            model = self.chat_model
+            system_content = """
+                You are جک, a Persian-speaking AI assistant created by حمیدرضا.  
+                You respond only in Persian, clearly and briefly — never in English.  
+                Your purpose is to help users with simple tasks and answer questions naturally.  
+                You can create folders, find files, and execute automated scripts upon request.  
+                Your name is جک.  
+                You support both voice and text interactions.  
+                If asked who made you, say: "I was created by حمیدرضا."  
+                If asked what you can do, say: "I can perform simple tasks like creating folders and finding files."  
+                If asked your name, say: "My name is جک."  
+                If asked how to interact with you, say: "You can talk to me using voice or text."  
+                Always be helpful, polite, and concise. Never explain more than needed. Never use markdown, lists, or extra punctuation.
+                """.strip()
 
-                    """.strip()
-                )
-            else:
-                model = self.chat_model
-                # پرامپت سیستم: گفتگوی معمولی
-                # پرامپت سیستم: گفتگوی معمولی (انگلیسی برای مدل، فارسی برای کاربر)
-                system_content = """
-                    You are جک, a Persian-speaking AI assistant created by حمیدرضا.  
-                    You respond only in Persian, clearly and briefly — never in English.  
-                    Your purpose is to help users with simple tasks and answer questions naturally.  
-                    You can create folders, find files, and execute automated scripts upon request.  
-                    Your name is جک.  
-                    You support both voice and text interactions.  
-                    If asked who made you, say: "I was created by حمیدرضا."  
-                    If asked what you can do, say: "I can perform simple tasks like creating folders and finding files."  
-                    If asked your name, say: "My name is جک."  
-                    If asked how to interact with you, say: "You can talk to me using voice or text."  
-                    Always be helpful, polite, and concise. Never explain more than needed. Never use markdown, lists, or extra punctuation.
-                    """.strip()
             # آماده‌سازی پیام‌ها و تاریخچه
             messages = []
             history_text = ""
@@ -162,21 +145,9 @@ class OllamaAPI:
                     "content": f"📝 Previous conversation history:\n{history_text.strip()}"
                 })
 
-            messages.append({"role": "system", "content": system_content})
-            messages.append({"role": "user", "content": user_query})
-
-            # پایه payload
-            payload = {
-                "model": model,
-                "messages": messages,
-                "stream": False,
-                "options": {
-                    "num_ctx": 2048,
-                    "num_predict": 256
-                }
-            }
-
-            # اگر حالت ابزار بود، ابزارها را اضافه کن
+            # اگر حالت ابزار بود، ابزارها را اضافه کن و پرامپت را داینامیک بساز
+            safe_tools = []  # تعریف اولیه برای جلوگیری از خطا
+            name_to_schema = {}
             if is_action:
                 try:
                     from .tool_selector import ToolSelector
@@ -196,7 +167,31 @@ class OllamaAPI:
                             safe_tools.append(tool_entry)
 
                     if safe_tools:
-                        payload["tools"] = safe_tools
+                        # --- ساخت پرامپت سیستم داینامیک اینجا انجام می‌شود ---
+                        tool_list = []
+                        for tool in safe_tools:
+                            params = tool.get("parameters", {})
+                            props = params.get("properties", {})
+                            param_desc = ", ".join([f"{k}: {v.get('description', '')}" for k, v in props.items()]) if props else "No parameters"
+                            tool_list.append(f"- {tool['name']}: {tool['description']}. Parameters: {param_desc}")
+
+                        system_content = f"""
+                            You have access to the following tools:
+                            {chr(10).join(tool_list)}
+
+                            Rules:
+                            1. Return ONLY a JSON object with "name" and "arguments".
+                            2. "name" MUST be exactly one of: {', '.join([f'"{t["name"]}"' for t in safe_tools])}.
+                            3. NEVER invent new tool names.
+                            4. If unsure, use "script_executor" with the full user request as "task".
+                            5. NO markdown, NO explanation, NO extra text.
+
+                            Example:
+                            {{"name": "script_executor", "arguments": {{"task": "Create a folder named test on desktop", "dry_run": true}}}}
+                                """.strip()
+                        model = self.action_model
+                        # -------------------------------------------------------
+
                         print(f"[OLLAMA] ✅ ابزارهای ارسالی: {[t['name'] for t in safe_tools]}")
 
                         # لاگ ابزارها
@@ -218,9 +213,30 @@ class OllamaAPI:
                             traceback.print_exc()
                     else:
                         print("[OLLAMA] ⚠️ هیچ ابزار معتبری برای ارسال پیدا نشد.")
+                        is_action = False # به حالت چت برگرد
                 except Exception as e:
                     print(f"[OLLAMA] ⚠️ خطا در انتخاب ابزارها: {e}")
                     traceback.print_exc()
+                    is_action = False # به حالت چت برگرد
+
+            # اضافه کردن پرامپت سیستم و پیام کاربر به لیست
+            messages.append({"role": "system", "content": system_content})
+            messages.append({"role": "user", "content": user_query})
+
+            # پایه payload
+            payload = {
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "num_ctx": 2048,
+                    "num_predict": 256
+                }
+            }
+
+            # اضافه کردن ابزارها به payload (اگر وجود دارند)
+            if is_action and safe_tools:
+                payload["tools"] = safe_tools
 
             # ارسال به مدل
             start_time = time.time()
@@ -240,7 +256,7 @@ class OllamaAPI:
             cleaned_raw = raw.replace("```json", "").replace("```", "").strip()
 
             # اگر حالت ابزار بود: parse و انتظار {"name", "arguments"}
-            if is_action:
+            if is_action and safe_tools: # تغییر: اطمینان از وجود safe_tools
                 try:
                     parsed = json.loads(cleaned_raw)
                     if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
@@ -328,6 +344,8 @@ class OllamaAPI:
             print(f"[OLLAMA] {error_msg}")
             traceback.print_exc()
             return error_msg
+
+
 
     def _validate_and_normalize_arguments(self, tool_schema: dict, args: dict):
         """

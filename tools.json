@@ -17,6 +17,21 @@
     },
     "required": ["task"]
   }
+},
+
+{
+  "name": "web_researcher",
+  "description": "جستجوی موضوع در وب، جمع‌آوری اطلاعات از چندین منبع و تولید گزارش HTML + متنی روی دسکتاپ",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "موضوعی که باید در وب جستجو و تحقیق شود (به فارسی یا انگلیسی)"
+      }
+    },
+    "required": ["query"]
+  }
 }
 
 ]
