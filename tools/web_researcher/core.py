@@ -8,26 +8,62 @@ from ddgs import DDGS
 from bs4 import BeautifulSoup
 
 def sanitize_filename(name: str) -> str:
+    """تبدیل عنوان به نام فایل ایمن"""
     return re.sub(r'[<>:"/\\|?*]', '_', name)[:100]
 
-def extract_text_from_url(url: str, timeout: int = 10) -> str:
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (compatible; WebResearcher/1.0)'}
-        response = requests.get(url, headers=headers, timeout=timeout)
-        response.raise_for_status()
-        response.encoding = 'utf-8'
-        soup = BeautifulSoup(response.text, 'lxml')
-        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
-            tag.decompose()
-        text = ' '.join(soup.stripped_strings)
-        return text[:2000]
-    except Exception as e:
-        return f"[خطا در بارگیری {url}: {str(e)}]"
+def clean_extracted_text(text: str) -> str:
+    """حذف خطوط خالی اضافی و نرمال‌سازی فاصله‌ها"""
+    # حذف خطوط خالی چندگانه
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+    # حذف فاصله‌های ابتدایی و انتهایی هر خط
+    lines = [line.strip() for line in text.split('\n')]
+    text = '\n'.join(line for line in lines if line)
+    # محدودیت طول (اختیاری برای جلوگیری از prompt طولانی)
+    return text[:5000]
 
-def call_ollama_generate(prompt: str, model: str = "qwen2.5:7b", max_tokens: int = 1000) -> str:
+def extract_main_content_from_html(html_content: str, url: str) -> str:
     """
-    فراخوانی مستقیم Ollama API برای تولید متن.
-    استفاده از /api/generate به جای /api/chat برای سادگی.
+    استخراج متن اصلی از صفحه با تمرکز بر تگ‌های معنایی.
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'lxml')
+        
+        # حذف بخش‌های غیرضروری
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form", "button", "img", "svg", "noscript"]):
+            tag.decompose()
+        
+        # یافتن بخش محتوای اصلی (با اولویت)
+        main_content = None
+        for selector in ['main', '[role="main"]', '.content', '#content', '.post', '.article']:
+            main_content = soup.select_one(selector)
+            if main_content:
+                break
+        
+        if not main_content:
+            main_content = soup.body if soup.body else soup
+
+        # استخراج متن از تگ‌های معنایی
+        meaningful_texts = []
+        allowed_tags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'code', 'pre', 'td', 'th']
+        
+        for tag in main_content.find_all(allowed_tags):
+            text = tag.get_text(separator=' ', strip=True)
+            if text and len(text) > 20:  # فیلتر متن‌های کوتاه بی‌معنی
+                meaningful_texts.append(text)
+        
+        # اگر متنی پیدا نشد، از کل بدنه استفاده کن
+        if not meaningful_texts:
+            meaningful_texts = [main_content.get_text(separator=' ', strip=True)]
+        
+        full_text = '\n\n'.join(meaningful_texts)
+        return clean_extracted_text(full_text)
+        
+    except Exception as e:
+        return f"[خطا در پردازش HTML صفحه {url}: {str(e)}]"
+
+def call_ollama_generate(prompt: str, model: str = "qwen2.5:7b", max_tokens: int = 1500) -> str:
+    """
+    فراخوانی مستقیم Ollama برای تولید HTML.
     """
     url = "http://localhost:11434/api/generate"
     payload = {
@@ -36,14 +72,13 @@ def call_ollama_generate(prompt: str, model: str = "qwen2.5:7b", max_tokens: int
         "stream": False,
         "options": {
             "num_predict": max_tokens,
-            "temperature": 0.7
+            "temperature": 0.6
         }
     }
     try:
-        response = requests.post(url, json=payload, timeout=120)
+        response = requests.post(url, json=payload, timeout=300)  # timeout طولانی‌تر
         response.raise_for_status()
-        result = response.json()
-        return result.get("response", "").strip()
+        return response.json().get("response", "").strip()
     except Exception as e:
         raise RuntimeError(f"خطا در ارتباط با Ollama: {e}")
 
@@ -70,74 +105,115 @@ def perform_web_research(query: str, max_results: int = 10) -> tuple[str, str]:
     if not results:
         raise RuntimeError("نتیجه‌ای یافت نشد.")
 
-    # 2. استخراج متن خام
-    raw_texts = []
-    sources = []
+    # 2. استخراج و پردازش متن از منابع
+    all_sources_data = []
+    raw_combined_for_llm = ""
+    
     for res in results:
         url = res["href"]
-        text = extract_text_from_url(url)
-        raw_texts.append(f"منبع: {res['title']}\nلینک: {url}\nمتن:\n{text}\n{'='*50}")
-        sources.append({"title": res["title"], "url": url})
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (compatible; WebResearcher/1.0)'}
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            resp.encoding = 'utf-8'
+            
+            # استخراج متن اصلی
+            main_text = extract_main_content_from_html(resp.text, url)
+            
+            source_data = {
+                "title": res["title"],
+                "url": url,
+                "extracted_text": main_text
+            }
+            all_sources_data.append(source_data)
+            
+            # برای ارسال به مدل
+            raw_combined_for_llm += f"=== منبع: {res['title']} ===\nلینک: {url}\nمتن استخراج‌شده:\n{main_text}\n\n"
+            
+        except Exception as e:
+            error_text = f"[خطا در بارگیری {url}: {str(e)}]"
+            all_sources_data.append({
+                "title": res["title"],
+                "url": url,
+                "extracted_text": error_text
+            })
+            raw_combined_for_llm += f"=== منبع: {res['title']} ===\nلینک: {url}\n{error_text}\n\n"
 
-    raw_combined = "\n\n".join(raw_texts)
+    # 3. ذخیره فایل متن خام
     raw_file = desktop / f"web_research_{safe_query}_{timestamp}.txt"
-    raw_file.write_text(raw_combined, encoding="utf-8", errors="replace")
+    raw_file.write_text(raw_combined_for_llm, encoding="utf-8", errors="replace")
 
-    # 3. ساخت پرامپت برای تولید HTML
-    prompt = f"""شما یک تحلیلگر تحقیق هستید. اطلاعات زیر از جستجوی وب درباره «{query}» جمع‌آوری شده است.
-لطفاً یک گزارش HTML حرفه‌ای و خوانا تولید کنید که شامل موارد زیر باشد:
-- یک عنوان اصلی جذاب
-- یک خلاصه کوتاه در بالا
-- بخش‌های منطقی بر اساس موضوعات مشترک
-- لیست منابع با لینک‌های قابل کلیک
-- استایل داخلی (CSS) با پس‌زمینه تیره، متن سفید/خاکستری روشن، فونت sans-serif فارسی‌پسند، فاصله‌گذاری مناسب
+    # 4. ساخت پرامپت هوشمند برای مدل
+    prompt = f"""شما یک تحلیلگر حرفه‌ای هستید. اطلاعات زیر از جستجوی وب درباره «{query}» جمع‌آوری شده است.
 
-قوانین:
-- فقط کد HTML کامل (با <html>, <head> شامل <style>, <body>) بده.
-- هیچ توضیح، کامنت یا متن اضافه نده.
-- از تگ‌های语义ی مثل <header>, <main>, <section>, <footer> استفاده کن.
+لطفاً یک گزارش HTML حرفه‌ای و خوانا تولید کنید با این ساختار:
 
-اطلاعات خام (فقط برای مرجع):
-{raw_combined[:5000]}"""
+1. یک عنوان اصلی جذاب در بالا
+2. یک "خلاصه کلی" که تمام نکات مهم را از همه منابع ترکیب و خلاصه کند
+3. یک بخش "جزئیات منبع به منبع" که برای هر منبع:
+   - عنوان منبع را نشان دهد
+   - متن استخراج‌شده از آن منبع را نمایش دهد
+4. یک بخش "منابع" در انتهای صفحه که لیستی از لینک‌های قابل کلیک به همه منابع باشد
 
-    # 4. فراخوانی مستقیم Ollama
+قوانین فرمت:
+- فقط کد HTML کامل (با <html>, <head> شامل <style>, <body>) بده
+- هیچ توضیح یا متن اضافه‌ای در خارج از تگ‌ها ننویس
+- از تگ‌های语义ی مثل <header>, <main>, <section>, <article>, <footer> استفاده کن
+- استایل داخلی (CSS) با پس‌زمینه تیره، متن سفید/خاکستری روشن، فونت خوانا، فاصله‌گذاری مناسب و direction: rtl
+
+اطلاعات ورودی:
+{raw_combined_for_llm[:8000]}"""
+
+    # 5. تولید HTML با مدل
     try:
-        html_content = call_ollama_generate(prompt, model="qwen2.5:7b", max_tokens=1000)
+        html_content = call_ollama_generate(prompt, model="qwen2.5:7b", max_tokens=1500)
     except Exception as e:
-        # fallback ساده در صورت خطا
+        # fallback در صورت خطا
         html_content = f"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <title>تحقیق وب: {query}</title>
     <style>
-        body {{ 
-            background: #121212; 
-            color: #e0e0e0; 
-            font-family: Vazirmatn, 'Segoe UI', Tahoma, sans-serif; 
-            line-height: 1.7; 
-            padding: 2rem; 
-            direction: rtl;
-        }}
-        h1 {{ color: #4da6ff; }}
-        a {{ color: #ff70a6; text-decoration: none; }}
+        body {{ background: #121212; color: #e0e0e0; font-family: Vazirmatn, sans-serif; line-height: 1.7; padding: 2rem; }}
+        h1 {{ color: #4da6ff; margin-bottom: 1rem; }}
+        .section {{ margin-bottom: 2rem; }}
+        .source-article {{ background: #1e1e1e; padding: 1rem; margin: 1rem 0; border-radius: 8px; }}
+        .source-title {{ color: #ff70a6; font-weight: bold; }}
+        a {{ color: #4da6ff; text-decoration: none; }}
         a:hover {{ text-decoration: underline; }}
-        .source-list {{ margin-top: 1.5rem; }}
     </style>
 </head>
 <body>
     <h1>تحقیق وب: {query}</h1>
     <p>⚠️ تولید گزارش زیبا با خطا مواجه شد. متن خام در فایل متنی قابل مشاهده است.</p>
-    <div class="source-list">
-        <h2>منابع:</h2>
-        <ul>
-""" + "\n".join([f'<li><a href="{src["url"]}">{src["title"]}</a></li>' for src in sources]) + """
-        </ul>
+    
+    <div class="section">
+        <h2>جزئیات منبع به منبع</h2>
+"""
+        for src in all_sources_data:
+            html_content += f"""
+        <div class="source-article">
+            <div class="source-title">{src['title']}</div>
+            <p>{src['extracted_text'][:500]}</p>
+            <a href="{src['url']}">مشاهده صفحه اصلی</a>
+        </div>
+"""
+        html_content += """
     </div>
+    <footer>
+        <h2>منابع</h2>
+        <ul>
+"""
+        for src in all_sources_data:
+            html_content += f'<li><a href="{src["url"]}">{src["title"]}</a></li>'
+        html_content += """
+        </ul>
+    </footer>
 </body>
 </html>"""
 
-    # 5. ذخیره HTML
+    # 6. ذخیره فایل HTML
     html_file = desktop / f"web_research_{safe_query}_{timestamp}.html"
     html_file.write_text(html_content, encoding="utf-8", errors="replace")
 

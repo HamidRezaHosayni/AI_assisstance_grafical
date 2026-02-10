@@ -1,6 +1,5 @@
 import os
 import threading
-import subprocess
 import wave
 import numpy as np
 import re
@@ -11,7 +10,7 @@ MODEL_DIR = os.path.join(os.path.dirname(__file__), "..", "models", "fa_tts_mode
 MODEL_PATH = os.path.join(MODEL_DIR, "3.onnx")
 CONFIG_PATH = os.path.join(MODEL_DIR, "3.json")
 
-# بارگذاری مدل یک‌باره (برای جلوگیری از تأخیر در هر فراخوانی)
+# بارگذاری مدل یک‌باره
 _piper_voice = None
 
 def _load_piper_model():
@@ -24,35 +23,37 @@ def _load_piper_model():
 def extract_persian_text(text: str) -> str:
     """
     فقط کاراکترهای فارسی، اعداد، فاصله و نیم‌فاصله را نگه می‌دارد.
-    سایر کاراکترها (مثل انگلیسی، علائم، کد، غیره) حذف می‌شوند.
     """
-    # الگو: فقط حروف فارسی، اعداد، فاصله، نیم‌فاصله، خط تیره، و خط جدید
     pattern = r'[^\u0600-\u06FF\u200C\u200D\s0-9\n\r\-]'
-    # جایگزینی کاراکترهای غیرمجاز با فاصله
     cleaned = re.sub(pattern, ' ', text)
-    # حذف فضاهای اضافی
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
 def _play_audio_file(file_path: str):
-    """پخش فایل صوتی با ffplay (بدون نمایش پنجره)"""
+    """پخش فایل صوتی با pygame (کراس‌پلتفرم: ویندوز + لینوکس)"""
     try:
-        subprocess.run(
-            ["ffplay", "-nodisp", "-autoexit", file_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
-    except FileNotFoundError:
-        print("[TTS] ❌ ffplay یافت نشد. لطفاً ffmpeg را نصب کنید.")
+        import pygame
+        pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+        sound = pygame.mixer.Sound(file_path)
+        channel = sound.play()
+        while channel.get_busy():
+            pygame.time.Clock().tick(10)
+        pygame.mixer.quit()
+    except ImportError:
+        print("[TTS] ❌ pygame نصب نیست. لطفاً اجرا کنید: pip install pygame")
     except Exception as e:
         print(f"[TTS] ❌ خطا در پخش صدا: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        # حذف فایل موقت
+        # حذف فایل موقت (با تأخیر کوتاه برای جلوگیری از خطای "file in use" در ویندوز)
         try:
-            os.remove(file_path)
-        except:
-            pass
+            import time
+            time.sleep(0.1)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"[TTS] ⚠️ خطا در حذف فایل موقت: {e}")
 
 def text_to_speech(text: str):
     """
@@ -62,13 +63,10 @@ def text_to_speech(text: str):
         return
 
     try:
-        # بارگذاری مدل (اولین بار)
         _load_piper_model()
-
         print(f"[TTS] در حال تولید صدا برای: {text}")
         audio_gen = _piper_voice.synthesize(text)
 
-        # جمع‌آوری داده‌ها
         audio_bytes = b"".join(
             chunk.audio_int16_bytes for chunk in audio_gen 
             if chunk.audio_int16_bytes
@@ -78,10 +76,8 @@ def text_to_speech(text: str):
             print("[TTS] ⚠️ هیچ داده صوتی تولید نشد.")
             return
 
-        # تبدیل به آرایه
         audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
 
-        # ذخیره فایل موقت
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             with wave.open(tmp.name, "wb") as wav_file:
